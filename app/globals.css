@@ -252,6 +252,26 @@ body {
   background-image: url("/images/drawing-round/countdown-red%20(1).png");
 }
 
+/* ink 704x708 at (418,732) of 1640x2360, drawn upside down in both files. A
+   180deg turn only flips the content, unlike the clock's 90deg turn, so it
+   does not swap the box's own width and height and needs no separate layer
+   to carry the art's own aspect ratio — this can rotate in place. */
+.art-music-toggle {
+  aspect-ratio: 704 / 708;
+  background-repeat: no-repeat;
+  background-size: 232.955% 333.390%;
+  background-position: 44.658% 44.310%;
+  transform: rotate(180deg);
+}
+
+.art-music-toggle-on {
+  background-image: url("/images/drawing-round/music-on.png");
+}
+
+.art-music-toggle-off {
+  background-image: url("/images/drawing-round/music-off.png");
+}
+
 /* ink 447x225 at (701,344) of 1920x1080 */
 .art-note {
   aspect-ratio: 447 / 225;
@@ -267,6 +287,38 @@ body {
   background-size: 1242.424% 261.931%;
   background-position: 37.069% 60.041%;
   background-image: url("/images/drawing-round/draw-pencil2.png");
+}
+
+/* VOTING splash: the hand-drawn "VOTE!" mark, a two-frame boil sheet like the
+   lobby art. .animate-boil supplies the repeat / size / animation; the cell is
+   half the 1200x880 sheet. */
+.frame-vote {
+  background-image: url("/images/voting/vote-boil.png");
+  aspect-ratio: 1200 / 440;
+}
+
+.art-vote-hand {
+  aspect-ratio: 1658 / 837;
+  background-repeat: no-repeat;
+  background-size: 123.522% 244.683%;
+  background-position: 53.333% 51.197%;
+  background-image: url("/images/voting/hand-point.png");
+}
+
+.art-vote-hand-accuse {
+  aspect-ratio: 1683 / 873;
+  background-repeat: no-repeat;
+  background-size: 121.688% 234.594%;
+  background-position: 58.356% 50.979%;
+  background-image: url("/images/voting/hand-point-accuse.png");
+}
+
+.art-accuse-badge {
+  aspect-ratio: 1011 / 957;
+  background-repeat: no-repeat;
+  background-size: 202.572% 214.003%;
+  background-position: 46.866% 37.764%;
+  background-image: url("/images/voting/accuse-badge.png");
 }
 
 /* Roster avatars scale with the layout box instead of the fixed AvatarBlob
