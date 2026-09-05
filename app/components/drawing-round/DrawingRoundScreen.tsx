@@ -1,10 +1,17 @@
 "use client";
 
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Canvas } from "@/app/components/game/Canvas";
 import { HomeButton } from "@/app/components/game/HomeButton";
+import {
+  isSoundMuted,
+  setSoundMuted,
+  subscribe as subscribeSoundMuted,
+} from "@/app/lib/soundPrefs";
 import type { AppSocket } from "@/app/socket-provider";
 import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
-import DrawingRound, { type Hint, type RosterPlayer } from "./DrawingRound";
+import DrawingRound from "./DrawingRound";
+import type { RosterPlayer } from "./geometry";
 
 interface DrawingRoundScreenProps {
   room: PublicRoom;
@@ -13,17 +20,49 @@ interface DrawingRoundScreenProps {
   socket: AppSocket;
 }
 
-// Pure prop-mapping from what Game.tsx already has in scope onto DrawingRound's
-// art and Canvas's drawing surface — no new socket subscription, no stroke
-// handling of its own. The state and the room both already exist by the time
-// this mounts (Game.tsx only renders this once gameState.phase is "DRAWING"),
-// so there is nothing here to load.
+const ROUND_MUSIC_SRC = "/sounds/round-loop.mp3";
+const ROUND_MUSIC_VOLUME = 0.35;
+
+// Pure prop-mapping from Game.tsx's state onto DrawingRound and Canvas — no
+// socket subscription or stroke handling of its own.
 export function DrawingRoundScreen({
   room,
   gameState,
   playerId,
   socket,
 }: DrawingRoundScreenProps) {
+  const muted = useSyncExternalStore(
+    subscribeSoundMuted,
+    isSoundMuted,
+    () => false,
+  );
+
+  // Game.tsx only renders this screen while phase is DRAWING, and swaps to
+  // the voting view the instant it changes — so this component's own mount
+  // and unmount already land exactly on "a round begins" and "voting
+  // begins", with nothing here needing to watch the phase itself.
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const music = new Audio(ROUND_MUSIC_SRC);
+    music.loop = true;
+    music.volume = ROUND_MUSIC_VOLUME;
+    music.muted = isSoundMuted();
+    musicRef.current = music;
+    // A browser can refuse this; that just means no music, not a crash.
+    music.play().catch(() => {});
+    return () => {
+      music.pause();
+      musicRef.current = null;
+    };
+  }, []);
+
+  // Reacts to the toggle without recreating (and so restarting) the loop.
+  useEffect(() => {
+    if (musicRef.current) {
+      musicRef.current.muted = muted;
+    }
+  }, [muted]);
+
   const byId = new Map(room.players.map((player) => [player.id, player]));
 
   // Turn order is the rotation the server shuffled at round start, so reading
@@ -42,23 +81,19 @@ export function DrawingRoundScreen({
   const currentDrawerId = gameState.turnOrder[gameState.turnIndex] ?? null;
   const myTurn = currentDrawerId === playerId;
 
-  // The server sends the imposter a category and no word; it sends everyone
-  // else the word. This only renders whichever branch it was given.
-  const hint: Hint =
-    "isImposter" in gameState.secret
-      ? { kind: "category", text: gameState.secret.category }
-      : { kind: "word", text: gameState.secret.word };
-
   return (
     <div className="relative w-full">
       <DrawingRound
         players={players}
         currentDrawerId={currentDrawerId}
         myPlayerId={playerId}
-        hint={hint}
+        secret={gameState.secret}
+        roundNumber={gameState.roundNumber}
         canDraw={myTurn}
         phaseEndsAt={gameState.phaseEndsAt}
         pass={gameState.pass}
+        muted={muted}
+        onToggleMuted={() => setSoundMuted(!muted)}
         board={
           <Canvas
             room={room}
@@ -69,9 +104,7 @@ export function DrawingRoundScreen({
           />
         }
       />
-      {/* The other in-round phases (app/game.tsx) keep this reachable too; the
-          split into a separate screen for DRAWING should not make it any
-          harder to leave the room mid-round. */}
+      {/* Keep the room reachable mid-round, same as the other in-round phases. */}
       <div className="fixed left-4 top-4 z-10">
         <HomeButton socket={socket} />
       </div>
