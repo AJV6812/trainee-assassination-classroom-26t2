@@ -67,6 +67,7 @@ export function createInitialGameState(): GameState {
     roundWinner: null,
     scores: { groupRoundsWon: 0, imposterRoundsWon: 0, perPlayer: {} },
     phaseEndsAt: null,
+    revealReadyIds: [],
   };
 }
 
@@ -86,6 +87,7 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     colour: HOST_COLOUR,
     connected: true,
     ready: false,
+    isSpectator: false,
   };
   const room: Room = {
     code,
@@ -114,13 +116,6 @@ export function joinRoom(
       ok: false,
       code: "ROOM_NOT_FOUND",
       message: `No room found with code ${roomCode}.`,
-    };
-  }
-  if (room.state.phase !== "LOBBY" && !room.players.map((x)=>x.id).includes(playerId)) {
-    return {
-      ok: false,
-      code: "ROOM_IN_PROGRESS",
-      message: "That game has already started.",
     };
   }
 
@@ -166,6 +161,7 @@ export function joinRoom(
     colour: nextColour(room.players),
     connected: true,
     ready: false,
+    isSpectator: room.state.phase !== "LOBBY",
   });
   return { ok: true, data: room };
 }
@@ -274,4 +270,11 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   }
 
   return room;
+}
+
+// everyone currently in the room becomes a real player for the round that's about to start.
+export function promoteSpectators(room: Room): void {
+  for (const player of room.players) {
+    player.isSpectator = false;
+  }
 }
