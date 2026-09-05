@@ -221,11 +221,76 @@ export default function DrawingRound({
       <div
         className="absolute inset-0 -z-10 animate-diagonal-scroll bg-repeat"
         style={{
-          backgroundImage: "url('/images/landing-page/landing-page-bg.jpg')",
-          backgroundSize: "720px 512px",
+          // group_12.png has a crayon strip baked into the bottom of its own
+          // tile, so repeating it — needed for the doodles to cover the whole
+          // page — repeats the crayons at every tile seam too, not just once
+          // at the true bottom. This crop is the same file with that strip
+          // removed (rows 0-950 of the original 1440x1024); the crayons live
+          // in their own non-repeating layer below instead.
+          backgroundImage: "url('/images/drawing-round/group_12-doodles.png')",
+          // Same 0.25 scale factor the original background used (720/2880 for
+          // landing-page-bg.jpg) applied to this crop's own 1440x950, so the
+          // doodles are the same size on screen as before the crop.
+          backgroundSize: "360px 238px",
           transform: "scale(1.75)",
         }}
       />
+
+      {/* Crayon border, left and right edges: the same asset as a vertical
+          column instead of a horizontal strip, framing the page the way a
+          picture frame does. group-crayons.png is drawn as a horizontal row,
+          so each column is built the same way the clock's sideways art was
+          turned upright: an oversized strip rotated inside a container
+          cropped to the column's own width, so tiling still happens along the
+          art's own long axis (now vertical) and neither column moves or
+          joins the doodle layer's scroll animation.
+
+          Two things a plain mirrored copy-paste would get wrong:
+
+          The rotation direction has to differ between the two sides.
+          Rotating the strip +90deg turns every crayon so its tip points
+          right. On the left edge that is pointing inward, correct — but the
+          same +90deg on the right edge also points right, which is now
+          pointing off the page. The right column needs -90deg so its tips
+          point left, inward, mirroring the left column instead of repeating
+          it.
+
+          The crop needs to be asymmetric, not centred. Each visible column is
+          half the strip's rendered thickness (70 of 140px) — not shrunk to
+          fit, but the full-size strip positioned so only its inner half
+          lands on the page and its outer half bleeds past the true edge,
+          where the wrapper's overflow-hidden cuts it. That is the same "let
+          it bleed off and get cropped" the top/bottom edges already do,
+          applied to the sides: `left:0` + `translate(-50%)` centres the
+          strip's own centre exactly on the page edge for the left column;
+          the right column mirrors that from `right:0` with `translate(50%)`. */}
+      <div className="absolute inset-y-0 left-0 -z-10 overflow-hidden w-[70px]">
+        <div
+          className="absolute left-0 top-1/2 bg-repeat-x"
+          style={{
+            width: "200vh",
+            height: "140px",
+            transform: "translate(-50%, -50%) rotate(90deg)",
+            backgroundImage: "url('/images/drawing-round/group-crayons.png')",
+            // group-crayons.png is 1521x158 (~9.63:1) — 1348x140 keeps that
+            // ratio at a thickness big enough to read clearly once half of
+            // it is cropped away.
+            backgroundSize: "1348px 140px",
+          }}
+        />
+      </div>
+      <div className="absolute inset-y-0 right-0 -z-10 overflow-hidden w-[70px]">
+        <div
+          className="absolute right-0 top-1/2 bg-repeat-x"
+          style={{
+            width: "200vh",
+            height: "140px",
+            transform: "translate(50%, -50%) rotate(-90deg)",
+            backgroundImage: "url('/images/drawing-round/group-crayons.png')",
+            backgroundSize: "1348px 140px",
+          }}
+        />
+      </div>
 
       {/* Announce turn/phase changes for players who can't see the motion. */}
       <p aria-live="polite" className="sr-only">
