@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameState, Room } from "@/shared/types";
-import { createPhaseLoop } from "./phase-loop";
+import { YOUR_TURN_DELAY_MS, createPhaseLoop } from "./phase-loop";
 import { createInitialGameState } from "./rooms";
 import { PHASE_DURATIONS_MS, clearRoomTimer, getRoomTimer } from "./timers";
 import { createWordDeck } from "./word-selection";
+
+// DRAWING no longer arms its clock the instant a turn starts: the your-turn
+// delay holds phaseEndsAt at null first. Any test driving a DRAWING turn to
+// its natural timeout has to cross this gap before the real 20s countdown
+// even begins.
+const DRAWING_TURN_CYCLE_MS = YOUR_TURN_DELAY_MS + PHASE_DURATIONS_MS.DRAWING;
 
 const PLAYERS = ["alice", "bob", "carol", "dave"];
 const CODE = "ROOM09";
@@ -74,11 +80,11 @@ describe("phase loop", () => {
       const room = roomAt("ROUND_STARTING");
       const { loop, broadcast } = setup(room);
 
-      loop.enterPhase(room, stateAt("DRAWING"));
+      loop.enterPhase(room, stateAt("VOTING"));
 
-      expect(room.state.phase).toBe("DRAWING");
+      expect(room.state.phase).toBe("VOTING");
       expect(room.state.phaseEndsAt).toBe(
-        Date.now() + PHASE_DURATIONS_MS.DRAWING,
+        Date.now() + PHASE_DURATIONS_MS.VOTING,
       );
       expect(broadcast).toHaveBeenCalledWith(room);
     });
@@ -92,6 +98,55 @@ describe("phase loop", () => {
       expect(room.state.phaseEndsAt).toBeNull();
       expect(getRoomTimer(CODE)).toBeNull();
     });
+
+    describe("entering DRAWING (the your-turn delay)", () => {
+      it("broadcasts the new turn immediately with no running clock, then arms it once the delay elapses", () => {
+        const room = roomAt("ROUND_STARTING");
+        const { loop, broadcast } = setup(room);
+
+        loop.enterPhase(room, stateAt("DRAWING", { turnIndex: 0 }));
+
+        expect(room.state.phase).toBe("DRAWING");
+        expect(room.state.phaseEndsAt).toBeNull();
+        expect(broadcast).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(YOUR_TURN_DELAY_MS);
+
+        expect(room.state.phaseEndsAt).toBe(
+          Date.now() + PHASE_DURATIONS_MS.DRAWING,
+        );
+        expect(broadcast).toHaveBeenCalledTimes(2);
+      });
+
+      it("cancels a pending turn-start if superseded before the delay elapses", () => {
+        const room = roomAt("ROUND_STARTING");
+        const { loop, broadcast } = setup(room);
+
+        loop.enterPhase(room, stateAt("DRAWING", { turnIndex: 0 }));
+        broadcast.mockClear();
+
+        vi.advanceTimersByTime(YOUR_TURN_DELAY_MS - 1);
+        loop.enterPhase(room, stateAt("VOTING"));
+
+        // The superseded DRAWING arm never fires — only VOTING's own entry.
+        vi.advanceTimersByTime(1);
+        expect(room.state.phase).toBe("VOTING");
+        expect(broadcast).toHaveBeenCalledTimes(1);
+      });
+
+      it("does nothing if the room was deleted before the delay elapsed", () => {
+        const room = roomAt("ROUND_STARTING");
+        const { loop, broadcast, rooms } = setup(room);
+
+        loop.enterPhase(room, stateAt("DRAWING", { turnIndex: 0 }));
+        broadcast.mockClear();
+        rooms.delete(CODE);
+
+        vi.advanceTimersByTime(YOUR_TURN_DELAY_MS);
+
+        expect(broadcast).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("onPhaseExpired drives the timed edges", () => {
@@ -101,14 +156,16 @@ describe("phase loop", () => {
       loop.enterPhase(room, room.state);
       broadcast.mockClear();
 
+      // The your-turn delay elapses first (arming turn 0's real clock), then
+      // that 20s runs out and hands the turn to player 1.
+      vi.advanceTimersByTime(YOUR_TURN_DELAY_MS);
       vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
 
       expect(room.state.phase).toBe("DRAWING");
       expect(room.state.turnIndex).toBe(1);
-      expect(room.state.phaseEndsAt).toBe(
-        Date.now() + PHASE_DURATIONS_MS.DRAWING,
-      );
-      expect(broadcast).toHaveBeenCalledTimes(1);
+      // Turn 1 has just started too, so it's back in its own your-turn delay.
+      expect(room.state.phaseEndsAt).toBeNull();
+      expect(broadcast).toHaveBeenCalledTimes(2);
     });
 
     it("DRAWING -> VOTING when the last turn of pass 2 runs out", () => {
@@ -119,7 +176,7 @@ describe("phase loop", () => {
       const { loop } = setup(room);
       loop.enterPhase(room, room.state);
 
-      vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+      vi.advanceTimersByTime(DRAWING_TURN_CYCLE_MS);
 
       expect(room.state.phase).toBe("VOTING");
       expect(room.state.phaseEndsAt).toBe(
@@ -134,13 +191,13 @@ describe("phase loop", () => {
 
       // One timer per turn: everyone draws once, then again in pass 2.
       for (let turn = 1; turn < PLAYERS.length * 2; turn++) {
-        vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+        vi.advanceTimersByTime(DRAWING_TURN_CYCLE_MS);
         expect(room.state.phase).toBe("DRAWING");
       }
       expect(room.state.pass).toBe(2);
       expect(room.state.turnIndex).toBe(PLAYERS.length - 1);
 
-      vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+      vi.advanceTimersByTime(DRAWING_TURN_CYCLE_MS);
       expect(room.state.phase).toBe("VOTING");
     });
 
@@ -243,7 +300,7 @@ describe("phase loop", () => {
       const { loop } = setup(room);
       loop.enterPhase(room, room.state);
 
-      vi.advanceTimersByTime(PHASE_DURATIONS_MS.DRAWING);
+      vi.advanceTimersByTime(DRAWING_TURN_CYCLE_MS);
       expect(room.state.phase).toBe("VOTING");
 
       vi.advanceTimersByTime(PHASE_DURATIONS_MS.VOTING);

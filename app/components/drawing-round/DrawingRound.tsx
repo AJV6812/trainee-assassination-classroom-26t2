@@ -53,6 +53,12 @@ const MUSIC_TOGGLE = { right: 12.66, bottom: 4.5, width: 4 };
 // turns red for the last quarter of it rather than the 10s the 60s mockup used.
 const URGENT_MS = 5_000;
 
+// How long the "Your Turn" card takes to fade once the real clock starts
+// (server/phase-loop.ts YOUR_TURN_DELAY_MS holds phaseEndsAt at null for that
+// long, which is what triggers this card — the fade itself just needs to be
+// quick, not match that delay).
+const YOUR_TURN_FADE_MS = 600;
+
 // Plays once a turn's own clock reaches zero. Kept apart from the round loop
 // in DrawingRoundScreen, which runs for the whole phase rather than per turn.
 const TIMER_END_SRC = "/sounds/timer-end.wav";
@@ -191,6 +197,30 @@ export default function DrawingRound({
   const isMyTurn = currentDrawerId === myPlayerId;
   const currentDrawer =
     players.find((player) => player.id === currentDrawerId) ?? null;
+
+  // The server holds phaseEndsAt at null for the your-turn delay (see
+  // server/phase-loop.ts), so this is true for exactly that window at the
+  // start of each of my turns — nobody else's, and never once the clock
+  // actually starts. That's the whole signal: show the card, then fade it
+  // the moment a real deadline arrives, rather than guessing the delay's
+  // length locally and risking drift from the server's own timing.
+  const showYourTurn = isMyTurn && !hasDeadline;
+  const [yourTurnMounted, setYourTurnMounted] = useState(showYourTurn);
+  // Same-render adjustment (not a setState-in-effect): mounts the card the
+  // instant showYourTurn goes true, with no extra frame of delay.
+  if (showYourTurn && !yourTurnMounted) {
+    setYourTurnMounted(true);
+  }
+  useEffect(() => {
+    if (showYourTurn) {
+      return;
+    }
+    const timer = setTimeout(
+      () => setYourTurnMounted(false),
+      YOUR_TURN_FADE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [showYourTurn]);
 
   const noteText = `ROUND ${roundNumber}`;
   const noteRef = useRef<HTMLSpanElement>(null);
@@ -448,6 +478,23 @@ export default function DrawingRound({
                 transform: `translate(-${PENCIL.tipX}%, -${PENCIL.tipY}%) rotate(${PENCIL.angle}deg) translateY(${
                   tip.down ? 0 : -4
                 }%)`,
+              }}
+            />
+          )}
+
+          {/* Shown only to the drawer, right as their turn starts, while the
+              server holds the clock at "–". pointer-events-none so it never
+              steals the pointer events Canvas needs underneath — nothing
+              stops someone drawing through it if they're quick. */}
+          {yourTurnMounted && (
+            <span
+              aria-hidden
+              className={`art-your-turn pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity ease-out ${
+                showYourTurn ? "opacity-100" : "opacity-0"
+              }`}
+              style={{
+                width: "34cqw",
+                transitionDuration: `${YOUR_TURN_FADE_MS}ms`,
               }}
             />
           )}

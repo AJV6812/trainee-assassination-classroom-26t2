@@ -289,6 +289,17 @@ body {
   background-image: url("/images/drawing-round/draw-pencil2.png");
 }
 
+/* ink 1080x1006 at (228,670) of 1640x2360. Shown over the board the instant a
+   turn starts, while the your-turn delay (server/phase-loop.ts) holds the
+   clock at "–"; DrawingRound.tsx fades it out once that delay ends. */
+.art-your-turn {
+  aspect-ratio: 1080 / 1006;
+  background-repeat: no-repeat;
+  background-size: 151.852% 234.593%;
+  background-position: 40.714% 49.483%;
+  background-image: url("/images/drawing-round/your-turn.png");
+}
+
 /* VOTING splash: the hand-drawn "VOTE!" mark, a two-frame boil sheet like the
    lobby art. .animate-boil supplies the repeat / size / animation; the cell is
    half the 1200x880 sheet. */
