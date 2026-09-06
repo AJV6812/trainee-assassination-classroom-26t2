@@ -13,7 +13,25 @@ import {
   settleVoting,
   toRoundRevealFromFinalGuess,
 } from "./state";
-import { armPhaseTimer } from "./timers";
+import { armPhaseTimer, clearRoomTimer } from "./timers";
+
+// How long a DRAWING turn's clock is held off after the turn actually starts,
+// so the drawer's own client (public/images/drawing-round/your-turn.png) has
+// time to show and fade before any real time is spent against them.
+export const YOUR_TURN_DELAY_MS = 2_000;
+
+// Tracks the "arm the real clock" callback scheduled for each room's current
+// turn, so a transition that supersedes it (an early stroke, a disconnect, a
+// timeout from some other phase entirely) can cancel it before it fires.
+const pendingTurnStarts = new Map<RoomCode, ReturnType<typeof setTimeout>>();
+
+function cancelPendingTurnStart(code: RoomCode): void {
+  const handle = pendingTurnStarts.get(code);
+  if (handle) {
+    clearTimeout(handle);
+    pendingTurnStarts.delete(code);
+  }
+}
 
 export interface PhaseLoopDeps {
   getRoom: (code: RoomCode) => Room | null;
@@ -52,6 +70,36 @@ export function createPhaseLoop({
   startNextRound,
 }: PhaseLoopDeps): PhaseLoop {
   function enterPhase(room: Room, next: GameState): void {
+    // Any previously pending turn-start is stale the moment we're entering a
+    // new phase at all, DRAWING or not — never let an old one arm a clock
+    // for a turn that isn't current anymore.
+    cancelPendingTurnStart(room.code);
+
+    if (next.phase === "DRAWING") {
+      // Broadcast the new turn right away, but with no clock yet: the
+      // drawer's client shows "Your Turn" while this state holds, and only
+      // the delayed arm below starts real time running.
+      clearRoomTimer(room.code);
+      room.state = { ...next, phaseEndsAt: null };
+      broadcast(room);
+
+      const handle = setTimeout(() => {
+        pendingTurnStarts.delete(room.code);
+        const current = getRoom(room.code);
+        if (!current) {
+          return;
+        }
+        const endsAt = armPhaseTimer(room.code, "DRAWING", () =>
+          onPhaseExpired(room.code),
+        );
+        current.state = { ...current.state, phaseEndsAt: endsAt };
+        broadcast(current);
+      }, YOUR_TURN_DELAY_MS);
+      handle.unref?.();
+      pendingTurnStarts.set(room.code, handle);
+      return;
+    }
+
     const endsAt = armPhaseTimer(room.code, next.phase, () =>
       onPhaseExpired(room.code),
     );
