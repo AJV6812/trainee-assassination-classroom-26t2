@@ -6,7 +6,10 @@ import {
   setSoundMuted,
   subscribe as subscribeSoundMuted,
 } from "@/app/lib/soundPrefs";
+import type { AppSocket } from "@/app/socket-provider";
 import DrawingRound from "./DrawingRound";
+
+const noopSocket = { emit: () => {} } as unknown as AppSocket;
 
 // Offline preview of the drawing round, mounted at /drawing. Feeds fixtures
 // and a blank board into the same DrawingRound the real screen uses, so the
@@ -77,6 +80,9 @@ export default function DrawingRoundMockup() {
       onToggleMuted={() => setSoundMuted(!muted)}
       // Blank: the frame art's cream shows through; drawing itself is Canvas's job.
       board={<div className="h-full w-full" />}
+      socket={noopSocket}
+      setRoomState={() => {}}
+      setGameState={() => {}}
     />
   );
 }

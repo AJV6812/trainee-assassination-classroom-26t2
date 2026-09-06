@@ -19,7 +19,7 @@ import { AppSocket } from "@/app/socket-provider";
 import { CLIENT_EVENTS } from "@/shared/events";
 import type { PlayerId, PublicGameState, PublicRoom } from "@/shared/types";
 import { Canvas } from "./Canvas";
-import { HomeButton } from "./HomeButton";
+import { HomeButton } from "@/app/components/HomeButton";
 import { TypewriterLines } from "./reveal/TypewriterLines";
 
 const URGENT_MS = 5_000;

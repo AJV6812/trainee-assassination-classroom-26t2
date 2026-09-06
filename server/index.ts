@@ -9,12 +9,15 @@ import type {
 import type { PlayerId, Room, RoomCode, Stroke } from "../shared/types";
 import { createPhaseLoop } from "./phase-loop";
 import {
+  canRestartGame,
   canStartGame,
   createRoom,
   getRoom,
   joinRoom,
   leaveRoom,
+  leaveRoomVoluntarily,
   markDisconnected,
+  restartGame,
   promoteSpectators,
   setAvatarDrawing,
   setReady,
@@ -73,7 +76,10 @@ type GameSocket = Socket<
   SocketData
 >;
 
-const RECONNECT_GRACE_MS = 10_000;
+const RECONNECT_GRACE_MS = parseInt(
+  process.env.RECONNECT_GRACE_MS || "10000",
+  10,
+);
 const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
 
 function pendingKey(roomCode: RoomCode, playerId: PlayerId) {
@@ -95,7 +101,9 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
     key,
     setTimeout(() => {
       pendingRemovals.delete(key);
-      const room = leaveRoom(roomCode, playerId);
+      const room = leaveRoom(roomCode, playerId, (message) => {
+        io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+      });
       if (!room) {
         if (!getRoom(roomCode)) {
           // Room emptied out while the player was gone. Clear its phase timer.
@@ -120,10 +128,14 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
 
       if (wasDrawing) {
         enterPhase(room, next);
-      } else if (next !== room.state) {
-        // Only the rotation changed. Broadcast it, but leave the running timer
-        // alone or the current player would get a second full turn.
-        room.state = next;
+      } else {
+        // Push the current state to whoever is left. Only the rotation changed
+        // here, or leaveRoom reset the whole game (imposter left / dropped
+        // below four) — either way the clients need it. Don't re-arm the phase
+        // timer (no enterPhase) or the current drawer gets a second full turn.
+        if (next !== room.state) {
+          room.state = next;
+        }
         broadcastState(roomCode, room);
       }
     }, RECONNECT_GRACE_MS),
@@ -139,7 +151,9 @@ function departPreviousRoom(socket: GameSocket, keepCode?: RoomCode) {
   }
 
   cancelPendingRemoval(roomCode, playerId);
-  const room = leaveRoom(roomCode, playerId);
+  const room = leaveRoom(roomCode, playerId, (message) => {
+    io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+  });
   socket.leave(roomCode);
   socket.data.playerId = undefined;
   socket.data.roomCode = undefined;
@@ -224,6 +238,20 @@ function beginRound(room: Room): Result<void> {
   // enterPhase arms the DRAWING timer and broadcasts the state.
   enterPhase(room, drawing.data);
   return { ok: true, data: undefined };
+}
+
+// Canvas coordinates are normalised 0..1 on both axes (T11). Reject any point
+// outside that box, or one that isn't a finite number.
+// TODO (T23): move this + a zod pass + rate limiting into shared validation.
+function pointInBounds(point: { x: number; y: number }): boolean {
+  return (
+    Number.isFinite(point.x) &&
+    Number.isFinite(point.y) &&
+    point.x >= 0 &&
+    point.x <= 1 &&
+    point.y >= 0 &&
+    point.y <= 1
+  );
 }
 
 io.on("connection", (socket) => {
@@ -389,6 +417,16 @@ io.on("connection", (socket) => {
       return;
     }
 
+    for (const point of payload.points) {
+      if (!pointInBounds(point)) {
+        socket.emit(SERVER_EVENTS.ERROR, {
+          code: "INVALID_PAYLOAD",
+          message: "Stroke point is outside the canvas.",
+        });
+        return;
+      }
+    }
+
     stroke.points = stroke.points.concat(payload.points);
 
     // Finishing a stroke ends the turn early.
@@ -457,10 +495,18 @@ io.on("connection", (socket) => {
       return;
     }
     const text = payload?.text;
-    if (typeof text !== "string") {
+    if (typeof text !== "string" || text.length == 0) {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "INVALID_PAYLOAD",
         message: "submit_guess needs text.",
+      });
+      return;
+    }
+
+    if (text.length > 64) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "Guess is too long",
       });
       return;
     }
@@ -567,6 +613,14 @@ io.on("connection", (socket) => {
       return;
     }
 
+    if (!pointInBounds(payload.point)) {
+      socket.emit(SERVER_EVENTS.ERROR, {
+        code: "INVALID_PAYLOAD",
+        message: "Stroke point is outside the canvas.",
+      });
+      return;
+    }
+
     const stroke: Stroke = {
       id: randomUUID(),
       playerId: playerId,
@@ -616,9 +670,112 @@ io.on("connection", (socket) => {
       return;
     }
 
+    for (const point of payload.points) {
+      if (!pointInBounds(point)) {
+        socket.emit(SERVER_EVENTS.ERROR, {
+          code: "INVALID_PAYLOAD",
+          message: "Stroke point is outside the canvas.",
+        });
+        return;
+      }
+    }
     stroke.points = stroke.points.concat(payload.points);
 
     broadcastState(roomCode, room);
+  });
+
+  socket.on(CLIENT_EVENTS.LEAVE_ROOM, (rawAck) => {
+    const ack = safeAck<void>(rawAck);
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    let room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    socket.data.roomCode = undefined;
+    socket.data.playerId = undefined;
+    socket.leave(roomCode);
+
+    cancelPendingRemoval(roomCode, playerId);
+    leaveRoomVoluntarily(roomCode, playerId, (message) => {
+      io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
+    });
+    room = getRoom(roomCode);
+
+    socket.emit(SERVER_EVENTS.ROOM_UPDATED, null);
+    socket.emit(SERVER_EVENTS.STATE_UPDATED, null);
+    ack({ ok: true, data: undefined });
+
+    if (room) {
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+
+      // Repair the round around the gap they left, same as the disconnect path:
+      // hand on their turn if it was theirs, then drop them from the rotation.
+      // (No-op when leaveRoomVoluntarily already reset the game to LOBBY.)
+      let next = room.state;
+      const wasDrawing = isCurrentDrawer(next, playerId);
+      if (wasDrawing) {
+        const advanced = advanceTurn(next);
+        if (advanced.ok) {
+          next = advanced.data;
+        }
+      }
+      next = dropFromTurnOrder(next, playerId);
+
+      if (wasDrawing) {
+        enterPhase(room, next);
+      } else {
+        if (next !== room.state) {
+          room.state = next;
+        }
+        broadcastState(roomCode, room);
+      }
+    }
+  });
+
+  socket.on(CLIENT_EVENTS.REPLAY, (rawAck) => {
+    const ack = safeAck<{ code: RoomCode }>(rawAck);
+
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const result = canRestartGame(roomCode, playerId);
+    if (!result.ok) {
+      ack(result);
+      return;
+    }
+
+    const room = getRoom(roomCode);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const restartedGame = restartGame(
+      room,
+      (message) => {
+        io.to(room.code).emit(SERVER_EVENTS.INFO, message);
+      },
+      "Game restarted by host.",
+    );
+
+    cancelPendingRemoval(room.code, playerId);
+
+    ack({ ok: true, data: { code: room.code } });
+    io.to(room.code).emit(
+      SERVER_EVENTS.ROOM_UPDATED,
+      toPublicRoom(restartedGame),
+    );
+    io.to(room.code).emit(SERVER_EVENTS.STATE_UPDATED, null);
   });
 
   socket.on("disconnect", () => {

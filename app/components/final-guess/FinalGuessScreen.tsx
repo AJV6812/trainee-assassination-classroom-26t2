@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@/app/components/game/Canvas";
-import { HomeButton } from "@/app/components/game/HomeButton";
+import { HomeButton } from "@/app/components/HomeButton";
 import {
   INK,
   type RosterPlayer,
@@ -18,6 +18,8 @@ interface FinalGuessScreenProps {
   gameState: PublicGameState;
   playerId: PlayerId;
   socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (state: PublicGameState | null) => void;
 }
 
 const SHOWN_ERROR_CODES = new Set<string>(["INVALID_PAYLOAD", "NOT_IMPOSTER"]);
@@ -28,6 +30,8 @@ export function FinalGuessScreen({
   gameState,
   playerId,
   socket,
+  setRoomState,
+  setGameState,
 }: FinalGuessScreenProps) {
   const imposter =
     room.players.find((player) => player.id === gameState.accusedId) ?? null;
@@ -107,7 +111,11 @@ export function FinalGuessScreen({
         }
       />
       <div className="fixed left-4 top-4 z-10">
-        <HomeButton socket={socket} />
+        <HomeButton
+          socket={socket}
+          setRoomState={setRoomState}
+          setGameState={setGameState}
+        />
       </div>
     </div>
   );

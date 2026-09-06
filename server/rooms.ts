@@ -1,4 +1,4 @@
-import type { Result } from "@/shared/events";
+import { type Result } from "@/shared/events";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -98,6 +98,21 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
     deck: createWordDeck(),
   };
   rooms.set(code, room);
+  return room;
+}
+
+// Wipe a room back to a fresh lobby, keeping its players. Used by the host
+// rematch and by the forced restarts (imposter left, dropped below four).
+export function restartGame(
+  room: Room,
+  broadcastMessage: (message: string) => void,
+  message: string,
+): Room {
+  room.state = createInitialGameState();
+  room.deck = createWordDeck();
+
+  broadcastMessage(message);
+
   return room;
 }
 
@@ -247,6 +262,36 @@ export function canStartGame(
   return { ok: true, data: undefined };
 }
 
+export function canRestartGame(
+  code: RoomCode,
+  requesterId: PlayerId,
+): Result<void> {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: `No room found with code ${roomCode}.`,
+    };
+  }
+  if (room.hostId !== requesterId) {
+    return {
+      ok: false,
+      code: "NOT_HOST",
+      message: "Only the host can restart the game.",
+    };
+  }
+  if (room.state.phase !== "GAME_OVER") {
+    return {
+      ok: false,
+      code: "WRONG_PHASE",
+      message: "The game is not over yet.",
+    };
+  }
+  return { ok: true, data: undefined };
+}
+
 export function markDisconnected(
   code: RoomCode,
   playerId: PlayerId,
@@ -264,7 +309,11 @@ export function markDisconnected(
   return room;
 }
 
-export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
+export function leaveRoom(
+  code: RoomCode,
+  playerId: PlayerId,
+  broadcastMessage: (message: string) => void,
+): Room | null {
   const roomCode = normaliseCode(code);
   const room = rooms.get(roomCode);
   if (!room) {
@@ -282,6 +331,24 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
     return null;
   }
 
+  if (
+    room.players.length < 4 &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Not enough players.");
+    return room;
+  }
+
+  if (
+    room.state.imposterId == playerId &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Imposter disconnected.");
+    return room;
+  }
+
   if (room.hostId === playerId) {
     const newHost = room.players[0];
     room.hostId = newHost.id;
@@ -289,6 +356,59 @@ export function leaveRoom(code: RoomCode, playerId: PlayerId): Room | null {
   }
 
   return room;
+}
+
+export function leaveRoomVoluntarily(
+  code: RoomCode,
+  playerId: PlayerId,
+  broadcastMessage: (message: string) => void,
+): Result<void> {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return { ok: false, code: "ROOM_NOT_FOUND", message: "Room not found." };
+  }
+
+  const index = room.players.findIndex((player) => player.id === playerId);
+  if (index === -1) {
+    return {
+      ok: false,
+      code: "ROOM_NOT_FOUND",
+      message: "Player not in room.",
+    };
+  }
+  room.players.splice(index, 1);
+
+  if (room.players.length === 0) {
+    rooms.delete(roomCode);
+    return { ok: true, data: undefined };
+  }
+
+  if (room.hostId === playerId) {
+    const newHost = room.players[0];
+    room.hostId = newHost.id;
+    newHost.colour = HOST_COLOUR;
+  }
+
+  if (
+    room.players.length < 4 &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Not enough players.");
+    return { ok: true, data: undefined };
+  }
+
+  if (
+    room.state.imposterId == playerId &&
+    room.state.phase !== "LOBBY" &&
+    room.state.phase !== "GAME_OVER"
+  ) {
+    restartGame(room, broadcastMessage, "Imposter disconnected.");
+    return { ok: true, data: undefined };
+  }
+
+  return { ok: true, data: undefined };
 }
 
 // everyone currently in the room becomes a real player for the round that's about to start.

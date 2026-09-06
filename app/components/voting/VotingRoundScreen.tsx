@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Canvas } from "@/app/components/game/Canvas";
-import { HomeButton } from "@/app/components/game/HomeButton";
+import { HomeButton } from "@/app/components/HomeButton";
 import type { RosterPlayer } from "@/app/components/drawing-round/geometry";
 import type { AppSocket } from "@/app/socket-provider";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "@/shared/events";
@@ -15,6 +15,8 @@ interface VotingRoundScreenProps {
   gameState: PublicGameState;
   playerId: PlayerId;
   socket: AppSocket;
+  setRoomState: (room: PublicRoom | null) => void;
+  setGameState: (state: PublicGameState | null) => void;
 }
 
 const SHOWN_ERROR_CODES = new Set<string>(["SELF_VOTE", "INVALID_VOTE_TARGET"]);
@@ -25,6 +27,8 @@ export function VotingRoundScreen({
   gameState,
   playerId,
   socket,
+  setRoomState,
+  setGameState,
 }: VotingRoundScreenProps) {
   const byId = new Map(room.players.map((player) => [player.id, player]));
   const ordered = gameState.turnOrder
@@ -100,7 +104,11 @@ export function VotingRoundScreen({
         }
       />
       <div className="fixed left-4 top-4 z-10">
-        <HomeButton socket={socket} />
+        <HomeButton
+          socket={socket}
+          setRoomState={setRoomState}
+          setGameState={setGameState}
+        />
       </div>
     </div>
   );

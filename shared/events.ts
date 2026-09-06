@@ -31,6 +31,7 @@ export const SERVER_EVENTS = {
   ROOM_UPDATED: "room_updated",
   STATE_UPDATED: "state_updated",
   ERROR: "error",
+  INFO: "info",
 } as const;
 
 export type ErrorCode =
@@ -82,8 +83,8 @@ export interface ClientToServerEvents {
   start_game: (ack: (result: Result<void>) => void) => void;
 
   time_sync: (ack: (serverTime: number) => void) => void;
-  replay: (ack: (result: Result<void>)=>void)=>void;
-  leave_room: (ack: (result: Result<void>)=>void)=>void;
+  replay: (ack: (result: Result<void>) => void) => void;
+  leave_room: (ack: (result: Result<void>) => void) => void;
 
   save_avatar_drawing: (
     payload: { strokes: AvatarStroke[] },
@@ -93,7 +94,8 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   connected: (payload: { socketId: string }) => void;
-  room_updated: (room: PublicRoom) => void;
-  state_updated: (state: PublicGameState) => void;
+  room_updated: (room: PublicRoom | null) => void;
+  state_updated: (state: PublicGameState | null) => void;
   error: (error: SocketError) => void;
+  info: (message: string) => void;
 }
