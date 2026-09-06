@@ -251,14 +251,8 @@ export default function DrawingRound({
       <div
         className="absolute inset-0 -z-10 animate-diagonal-scroll bg-repeat"
         style={{
-          // Cropped from the original group_12.png tile (rows 0-950 of
-          // 1440x1024) to drop a crayon strip baked into its bottom edge,
-          // which would otherwise repeat at every tile seam, not just once.
-          backgroundImage: "url('/images/drawing-round/group_12-doodles.png')",
-          // Same 0.25 scale factor the original background used (720/2880 for
-          // landing-page-bg.jpg) applied to this crop's own 1440x950, so the
-          // doodles are the same size on screen as before the crop.
-          backgroundSize: "360px 238px",
+          backgroundImage: "url('/images/landing-page/landing-page-bg.jpg')",
+          backgroundSize: "720px 512px",
           transform: "scale(1.75)",
         }}
       />
