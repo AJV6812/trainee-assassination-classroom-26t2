@@ -1,12 +1,11 @@
 "use client";
 
-import { Canvas } from "./components/game/Canvas";
 import { useSyncExternalStore } from "react";
 import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { getPlayerId, subscribe } from "./lib/identity";
 import { useSocket } from "./socket-provider";
 import { VotingRoundScreen } from "./components/voting/VotingRoundScreen";
-import { ImposterGuess } from "./components/game/ImposterGuess";
+import { FinalGuessScreen } from "./components/final-guess/FinalGuessScreen";
 import { HomeButton } from "./components/game/HomeButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import { RoundReveal } from "./components/game/RoundReveal";
@@ -19,10 +18,6 @@ interface GameProps {
 export function Game({ room, gameState }: GameProps) {
   const socket = useSocket();
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
-
-  const playerUp = room.players.find(
-    (x) => x.id == gameState.turnOrder[gameState.turnIndex],
-  )?.nickname;
 
   let content;
 
@@ -56,24 +51,16 @@ export function Game({ room, gameState }: GameProps) {
 
   if (gameState.phase === "FINAL_GUESS") {
     return (
-      <>
-        <SecretDisplay secret={gameState.secret} />
-        <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-          <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
-          <Canvas
-            strokes={gameState.strokes}
-            room={room}
-            playerId={playerId}
-            socket={socket}
-            myTurn={false}
-          />
-
-          <ImposterGuess socket={socket} />
-          <HomeButton socket={socket} />
-        </main>
-      </>
+      <FinalGuessScreen
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+      />
     );
-  } else if (gameState.phase == "ROUND_REVEAL") {
+  }
+
+  if (gameState.phase == "ROUND_REVEAL") {
     content = (
       <>
         <RoundReveal
