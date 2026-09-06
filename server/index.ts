@@ -1,4 +1,4 @@
-import { createServer } from "https";
+import { createServer } from "http";
 import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
