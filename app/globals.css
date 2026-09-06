@@ -329,6 +329,58 @@ body {
   font-size: calc(var(--avatar-size) * 0.42);
 }
 
+/* Customize-avatar dialog art. Every consumer already fixes both the width
+   and the height (the dialog's own aspect-ratio, or a percentage box copied
+   from the source art), so a plain 100% 100% stretch reproduces the asset
+   exactly with no separate aspect-ratio needed. */
+.art-avatar-card {
+  background-image: url("/images/avatar/avatar-card.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* The source art is a solid filled disc, not a hollow ring, so it would
+   otherwise sit in front of the canvas and hide every stroke. A radial mask
+   keeps only its outer edge (the hand-drawn border) visible and lets the
+   canvas underneath show through the masked-out centre. */
+.art-avatar-circle-ring {
+  background-image: url("/images/avatar/avatar-circle-ring.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  -webkit-mask-image: radial-gradient(
+    circle closest-side,
+    transparent 0%,
+    transparent 96%,
+    black 97.5%,
+    black 100%
+  );
+  mask-image: radial-gradient(
+    circle closest-side,
+    transparent 0%,
+    transparent 96%,
+    black 97.5%,
+    black 100%
+  );
+}
+
+.art-avatar-save-button {
+  background-image: url("/images/avatar/avatar-save-button.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.art-avatar-cancel-button {
+  background-image: url("/images/avatar/avatar-cancel-button.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.art-avatar-undo-button {
+  background-image: url("/images/avatar/avatar-undo-button.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-boil {
     animation: none;

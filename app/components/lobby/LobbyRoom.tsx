@@ -75,6 +75,7 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
           open={customizeOpen}
           onClose={() => setCustomizeOpen(false)}
           player={me}
+          socket={socket}
         />
       )}
     </div>
