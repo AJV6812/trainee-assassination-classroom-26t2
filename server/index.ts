@@ -645,7 +645,7 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(port, "0.0.0.0", () => {
+httpServer.listen(port, () => {
   console.log(`> Socket.io server listening on http://localhost:${port}`);
 });
 
