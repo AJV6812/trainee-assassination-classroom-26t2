@@ -131,6 +131,13 @@ body {
 
 }
 
+.frame-home-icon {
+  background-image: url("/images/lobby/home-icon.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
 
 .frame-ready {
   background-image: url("/images/lobby/ready-cross.png");

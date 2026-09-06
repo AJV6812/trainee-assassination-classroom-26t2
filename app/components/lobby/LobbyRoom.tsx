@@ -49,6 +49,7 @@ export function LobbyRoom({
       <div className="flex w-full items-center">
         <div className="flex">
           <HomeButton
+            variant="icon"
             setGameState={setGameState}
             setRoomState={setRoomState}
             socket={socket}
