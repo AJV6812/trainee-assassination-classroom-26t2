@@ -1,4 +1,4 @@
-import { createServer } from "http";
+import { createServer } from "https";
 import { Server, type DefaultEventsMap, type Socket } from "socket.io";
 import { CLIENT_EVENTS, SERVER_EVENTS } from "../shared/events";
 import type {
@@ -618,3 +618,4 @@ io.on("connection", (socket) => {
 httpServer.listen(port, "0.0.0.0", () => {
   console.log(`> Socket.io server listening on http://localhost:${port}`);
 });
+
