@@ -18,8 +18,10 @@ export default function Home() {
   const [gameState, setGameState] = useState<PublicGameState | null>(null);
   const [room, setRoom] = useState<PublicRoom | null>(null);
 
-  const [message, setMessage] = useState<string | null>(null);
-  const [isError, setIsError] = useState<boolean>(false);
+  const [banner, setBanner] = useState<{
+    text: string;
+    isError: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const handleRoomUpdated = (publicRoom: PublicRoom | null) =>
@@ -40,35 +42,28 @@ export default function Home() {
   }, [socket]);
 
   useEffect(() => {
-    const handleInfo = (message_arg: string) => setMessage(message_arg);
-    setIsError(false);
+    const handleInfo = (text: string) => setBanner({ text, isError: false });
+    const handleError = (error: SocketError) =>
+      setBanner({ text: `${error.code}: ${error.message}`, isError: true });
     socket.on(SERVER_EVENTS.INFO, handleInfo);
-    return () => {
-      socket.off(SERVER_EVENTS.INFO, handleInfo);
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    const handleError = (message_arg: SocketError) =>
-      setMessage(message_arg.code + ": " + message_arg.message);
-    setIsError(true);
     socket.on(SERVER_EVENTS.ERROR, handleError);
     return () => {
+      socket.off(SERVER_EVENTS.INFO, handleInfo);
       socket.off(SERVER_EVENTS.ERROR, handleError);
     };
   }, [socket]);
 
   useEffect(() => {
-    if (message === null) {
+    if (banner === null) {
       return;
     }
 
     const timeout = setTimeout(() => {
-      setMessage(null);
+      setBanner(null);
     }, BANNER_DURATION_MS);
 
     return () => clearTimeout(timeout);
-  }, [message]);
+  }, [banner]);
 
   if (playerId === "") {
     return (
@@ -81,31 +76,21 @@ export default function Home() {
   const inLobby =
     room === null || gameState === null || gameState.phase === "LOBBY";
 
-  var banner;
-  if (isError) {
-    banner = message ? (
-      <div
-        role={isError ? "alert" : "status"}
-        className="w-full px-4 py-3 text-center text-sm font-medium bg-red-600 text-white"
-      >
-        {message}
-      </div>
-    ) : null;
-  } else {
-    banner = message ? (
-      <div
-        role={isError ? "alert" : "status"}
-        className="w-full px-4 py-3 text-center text-sm font-medium bg-blue-600 text-white"
-      >
-        {message}
-      </div>
-    ) : null;
-  }
+  const bannerEl = banner ? (
+    <div
+      role={banner.isError ? "alert" : "status"}
+      className={`w-full px-4 py-3 text-center text-sm font-medium text-white ${
+        banner.isError ? "bg-red-600" : "bg-blue-600"
+      }`}
+    >
+      {banner.text}
+    </div>
+  ) : null;
 
   if (inLobby) {
     return (
       <>
-        {banner}
+        {bannerEl}
         <div className="relative flex flex-1 flex-col items-center overflow-hidden font-sans">
           <div
             className="absolute inset-0 -z-10 bg-repeat animate-diagonal-scroll"
@@ -129,7 +114,7 @@ export default function Home() {
 
   return (
     <>
-      {banner}
+      {bannerEl}
       <Game
         room={room}
         socket={socket}
@@ -137,7 +122,6 @@ export default function Home() {
         setGameState={setGameState}
         setRoomState={setRoom}
       />
-      ;
     </>
   );
 }

@@ -7,20 +7,23 @@ import { PublicGameState, PublicRoom } from "@/shared/types";
 
 interface HomeButtonProps {
   socket: AppSocket;
-  setRoomState: (room: PublicRoom | null) => void;
-  setGameState: (room: PublicGameState | null) => void;
+  // Optional: the server also emits room_updated(null) / state_updated(null) to
+  // the leaving socket, so callers that don't hold the page-level setters (the
+  // in-round screens, the mockups) still land back on the lobby a beat later.
+  setRoomState?: (room: PublicRoom | null) => void;
+  setGameState?: (state: PublicGameState | null) => void;
 }
 
 function goHome(
   socket: AppSocket,
-  setRoomState: (room: PublicRoom | null) => void,
-  setGameState: (room: PublicGameState | null) => void,
+  setRoomState?: (room: PublicRoom | null) => void,
+  setGameState?: (state: PublicGameState | null) => void,
 ): Promise<Result<void>> {
   return new Promise((resolve) => {
     clearStoredSession();
     clearPlayerId();
-    setRoomState(null);
-    setGameState(null);
+    setRoomState?.(null);
+    setGameState?.(null);
     socket.emit(CLIENT_EVENTS.LEAVE_ROOM, resolve);
   });
 }

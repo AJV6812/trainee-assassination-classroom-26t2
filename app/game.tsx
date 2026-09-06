@@ -1,13 +1,12 @@
 "use client";
 
-import { Canvas } from "./components/game/Canvas";
 import { useSyncExternalStore } from "react";
 import type { PublicGameState, PublicRoom } from "@/shared/types";
 import { getPlayerId, subscribe } from "./lib/identity";
+import type { AppSocket } from "./socket-provider";
 import { VotingRoundScreen } from "./components/voting/VotingRoundScreen";
-import { ImposterGuess } from "./components/game/ImposterGuess";
+import { FinalGuessScreen } from "./components/final-guess/FinalGuessScreen";
 import { HomeButton } from "./components/HomeButton";
-import { AppSocket } from "./socket-provider";
 import { ReplayButton } from "./components/game/ReplayButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import { RoundReveal } from "./components/game/RoundReveal";
@@ -18,7 +17,7 @@ interface GameProps {
   gameState: PublicGameState;
   socket: AppSocket;
   setRoomState: (room: PublicRoom | null) => void;
-  setGameState: (room: PublicGameState | null) => void;
+  setGameState: (state: PublicGameState | null) => void;
 }
 export function Game({
   room,
@@ -29,10 +28,6 @@ export function Game({
 }: GameProps) {
   const playerId = useSyncExternalStore(subscribe, getPlayerId, () => "");
 
-  const playerUp = room.players.find(
-    (x) => x.id == gameState.turnOrder[gameState.turnIndex],
-  )?.nickname;
-
   let content;
 
   // DRAWING gets its own screen (the hand-drawn frame, roster, and hint note)
@@ -41,12 +36,12 @@ export function Game({
   if (gameState.phase === "DRAWING") {
     return (
       <DrawingRoundScreen
-        setRoomState={setRoomState}
-        setGameState={setGameState}
         room={room}
         gameState={gameState}
         playerId={playerId}
         socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
       />
     );
   }
@@ -61,47 +56,38 @@ export function Game({
         gameState={gameState}
         playerId={playerId}
         socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
       />
     );
   }
 
   if (gameState.phase === "FINAL_GUESS") {
     return (
-      <>
-        <SecretDisplay secret={gameState.secret} />
-        <main className="flex w-full max-w-6xl flex-1 flex-col items-center py-12 px-6 sm:py-16 sm:px-8 md:py-16 md:px-12">
-          <h1>{`${gameState.phase}: ${playerUp}'s turn!`}</h1>
-          <Canvas
-            strokes={gameState.strokes}
-            room={room}
-            playerId={playerId}
-            socket={socket}
-            myTurn={false}
-          />
+      <FinalGuessScreen
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
+      />
+    );
+  }
 
-          <ImposterGuess socket={socket} />
-          <HomeButton setGameState = {setGameState} setRoomState = {setRoomState} socket={socket} />
-        </main>
-      </>
+  if (gameState.phase === "ROUND_REVEAL") {
+    return (
+      <RoundReveal
+        key={gameState.roundNumber}
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+      />
     );
-  } else if (gameState.phase == "ROUND_REVEAL") {
-    content = (
-      <>
-        <RoundReveal
-          key={gameState.roundNumber}
-          room={room}
-          gameState={gameState}
-          playerId={playerId}
-          socket={socket}
-        />
-        <HomeButton
-          setGameState={setGameState}
-          setRoomState={setRoomState}
-          socket={socket}
-        />
-      </>
-    );
-  } else if (gameState.phase == "SCORING") {
+  }
+
+  if (gameState.phase == "SCORING") {
     content = <h1>Scores!</h1>;
   } else if (gameState.phase == "GAME_OVER") {
     content = (
@@ -109,9 +95,9 @@ export function Game({
         <h1>Game Over!</h1>
         <div style={{ display: "inline-flex" }}>
           <HomeButton
-            setGameState={setGameState}
-            setRoomState={setRoomState}
             socket={socket}
+            setRoomState={setRoomState}
+            setGameState={setGameState}
           />
           <ReplayButton socket={socket} />
         </div>
@@ -120,9 +106,7 @@ export function Game({
   }
 
   const showSecret =
-    gameState.phase !== "ROUND_REVEAL" &&
-    gameState.phase !== "SCORING" &&
-    gameState.phase !== "GAME_OVER";
+    gameState.phase !== "SCORING" && gameState.phase !== "GAME_OVER";
 
   return (
     <>

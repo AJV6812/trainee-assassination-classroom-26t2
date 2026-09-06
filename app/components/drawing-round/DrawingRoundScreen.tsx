@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Canvas } from "@/app/components/game/Canvas";
-import { HomeButton } from "@/app/components/HomeButton";
 import {
   isSoundMuted,
   setSoundMuted,
