@@ -6,11 +6,10 @@ import { getPlayerId, subscribe } from "./lib/identity";
 import type { AppSocket } from "./socket-provider";
 import { VotingRoundScreen } from "./components/voting/VotingRoundScreen";
 import { FinalGuessScreen } from "./components/final-guess/FinalGuessScreen";
-import { HomeButton } from "./components/HomeButton";
-import { ReplayButton } from "./components/game/ReplayButton";
 import { SecretDisplay } from "./components/lobby/SecretDisplay";
 import { RoundReveal } from "./components/game/RoundReveal";
 import { DrawingRoundScreen } from "./components/drawing-round/DrawingRoundScreen";
+import { GameOver } from "./components/game/GameOver";
 
 interface GameProps {
   room: PublicRoom;
@@ -87,26 +86,24 @@ export function Game({
     );
   }
 
-  if (gameState.phase == "SCORING") {
-    content = <h1>Scores!</h1>;
-  } else if (gameState.phase == "GAME_OVER") {
-    content = (
-      <>
-        <h1>Game Over!</h1>
-        <div style={{ display: "inline-flex" }}>
-          <HomeButton
-            socket={socket}
-            setRoomState={setRoomState}
-            setGameState={setGameState}
-          />
-          <ReplayButton socket={socket} />
-        </div>
-      </>
+  if (gameState.phase === "GAME_OVER") {
+    return (
+      <GameOver
+        room={room}
+        gameState={gameState}
+        playerId={playerId}
+        socket={socket}
+        setRoomState={setRoomState}
+        setGameState={setGameState}
+      />
     );
   }
 
-  const showSecret =
-    gameState.phase !== "SCORING" && gameState.phase !== "GAME_OVER";
+  if (gameState.phase == "SCORING") {
+    content = <h1>Scores!</h1>;
+  }
+
+  const showSecret = gameState.phase !== "SCORING";
 
   return (
     <>
