@@ -7,11 +7,9 @@ import { PublicGameState, PublicRoom } from "@/shared/types";
 
 interface HomeButtonProps {
   socket: AppSocket;
-  // Optional: the server also emits room_updated(null) / state_updated(null) to
-  // the leaving socket, so callers that don't hold the page-level setters (the
-  // in-round screens, the mockups) still land back on the lobby a beat later.
   setRoomState?: (room: PublicRoom | null) => void;
   setGameState?: (state: PublicGameState | null) => void;
+  variant?: "bar" | "icon";
 }
 
 function goHome(
@@ -32,14 +30,20 @@ export function HomeButton({
   socket,
   setRoomState,
   setGameState,
+  variant = "bar",
 }: HomeButtonProps) {
+  const buttonClass =
+    variant === "icon"
+      ? "aspect-square w-16 frame-home-icon"
+      : "w-64 rounded-xl px-4 py-3 text-lg frame-home-button";
+
   return (
     <div className="home-button-wrap flex flex-col items-center gap-1">
       <button
         type="button"
         onClick={() => goHome(socket, setRoomState, setGameState)}
-        disabled={false}
-        className="w-64 py-3 px-4 text-lg rounded-xl frame-home-button disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Leave room"
+        className={`${buttonClass} cursor-pointer disabled:opacity-40`}
       ></button>
     </div>
   );

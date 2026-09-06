@@ -204,7 +204,7 @@ export function RoundReveal({
       </div>
 
       <div className="fixed left-4 top-4 z-10">
-        <HomeButton socket={socket} />
+        <HomeButton variant={"icon"} socket={socket} />
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center border-t-2 border-[#3f3730] bg-[#fdf6e3] px-4 py-3 shadow-[0_-4px_16px_rgba(63,55,48,0.15)]">
