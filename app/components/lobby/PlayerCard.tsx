@@ -34,6 +34,7 @@ function AvatarSlot({
         colour={player.colour}
         initial={player.nickname.charAt(0).toUpperCase() || "?"}
         size={size}
+        avatarDrawing={player.avatarDrawing}
       />
       {isSelf && onCustomize && (
         <button

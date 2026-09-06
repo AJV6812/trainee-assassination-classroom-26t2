@@ -76,6 +76,7 @@ export function DrawingRoundScreen({
     id: player.id,
     nickname: player.nickname,
     colour: player.colour,
+    avatarDrawing: player.avatarDrawing,
   }));
 
   const currentDrawerId = gameState.turnOrder[gameState.turnIndex] ?? null;

@@ -16,6 +16,7 @@ import {
   leaveRoom,
   markDisconnected,
   promoteSpectators,
+  setAvatarDrawing,
   setReady,
   toPublicRoom,
 } from "./rooms";
@@ -36,7 +37,12 @@ import {
   toRoundRevealFromFinalGuess,
 } from "./state";
 import { clearRoomTimer } from "./timers";
-import { parseIdentity, parseRoomCode, safeAck } from "./validate";
+import {
+  parseAvatarDrawing,
+  parseIdentity,
+  parseRoomCode,
+  safeAck,
+} from "./validate";
 import { drawWord } from "./word-selection";
 import { randomUUID } from "crypto";
 
@@ -293,6 +299,30 @@ io.on("connection", (socket) => {
     if (room) {
       io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
     }
+  });
+
+  socket.on(CLIENT_EVENTS.SAVE_AVATAR_DRAWING, (payload, rawAck) => {
+    const ack = safeAck<void>(rawAck);
+    const { playerId, roomCode } = socket.data;
+    if (!playerId || !roomCode) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    const parsed = parseAvatarDrawing(payload);
+    if (!parsed.ok) {
+      ack(parsed);
+      return;
+    }
+
+    const room = setAvatarDrawing(roomCode, playerId, parsed.data);
+    if (!room) {
+      ack({ ok: false, code: "ROOM_NOT_FOUND", message: "Not in a room." });
+      return;
+    }
+
+    ack({ ok: true, data: undefined });
+    io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
   });
 
   socket.on(CLIENT_EVENTS.START_GAME, (rawAck) => {
@@ -618,3 +648,4 @@ io.on("connection", (socket) => {
 httpServer.listen(port, "0.0.0.0", () => {
   console.log(`> Socket.io server listening on http://localhost:${port}`);
 });
+
