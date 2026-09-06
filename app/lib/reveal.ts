@@ -1,5 +1,11 @@
 import { ROUNDS_PER_GAME } from "@/shared/types";
-import type { Player, PlayerId, RoundWinner, Vote } from "@/shared/types";
+import type {
+  Player,
+  PlayerId,
+  RoundReveal,
+  RoundWinner,
+  Vote,
+} from "@/shared/types";
 
 export interface VoteTally {
   player: Player;
@@ -34,9 +40,39 @@ export function isLastRound(roundNumber: number): boolean {
   return roundNumber >= ROUNDS_PER_GAME;
 }
 
-export const SURVIVAL_STAGE_DURATIONS_MS = [2500, 2000, 2500, 2000, 2500];
-export const SURVIVAL_IMPOSTER_STAGE = 2;
-export const SURVIVAL_RESULT_STAGE = SURVIVAL_STAGE_DURATIONS_MS.length - 1;
+/**
+ * The round result, one line at a time. RoundReveal types these out below the
+ * board with each line replacing the last, so the array order is the order the
+ * room reads them in. The last line is the one that stays on screen.
+ */
+export function revealLines(
+  reveal: RoundReveal,
+  accusedId: PlayerId | null,
+  players: Player[],
+): string[] {
+  const nameOf = (id: PlayerId | null): string =>
+    players.find((player) => player.id === id)?.nickname ?? "someone";
 
-export const CAUGHT_STAGE_DURATIONS_MS = [2000, 2000];
-export const CAUGHT_RESULT_STAGE = CAUGHT_STAGE_DURATIONS_MS.length - 1;
+  const imposterName = nameOf(reveal.imposterId);
+  const wordLine = `The word was "${reveal.word}"`;
+  const caught = accusedId !== null && accusedId === reveal.imposterId;
+
+  if (caught) {
+    const guess = reveal.finalGuess?.text.trim();
+    return [
+      `${imposterName} was caught red-handed!`,
+      guess ? `Their guess: "${guess}"` : "They never made a guess.",
+      wordLine,
+      resultCopy(reveal.winner, true),
+    ];
+  }
+
+  return [
+    accusedId !== null
+      ? `The room accused ${nameOf(accusedId)}.`
+      : "The room couldn't agree on anyone.",
+    `The imposter was ${imposterName}.`,
+    wordLine,
+    resultCopy(reveal.winner, false),
+  ];
+}

@@ -157,6 +157,7 @@ export default function VotingRound({
               colour={player.colour}
               initial={player.nickname.charAt(0).toUpperCase() || "?"}
               className="avatar-fluid cursor-pointer"
+              avatarDrawing={player.avatarDrawing}
             />
           );
 
