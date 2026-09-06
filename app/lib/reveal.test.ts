@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Player } from "@/shared/types";
-import { isLastRound, resultCopy, tallyVotesForDisplay } from "./reveal";
+import type { Player, RoundReveal } from "@/shared/types";
+import {
+  isLastRound,
+  resultCopy,
+  revealLines,
+  tallyVotesForDisplay,
+} from "./reveal";
 
 const PLAYERS: Player[] = ["alice", "bob", "carol", "dave"].map((id) => ({
   id,
@@ -87,5 +92,57 @@ describe("isLastRound", () => {
   it("is true on and after the final round", () => {
     expect(isLastRound(3)).toBe(true);
     expect(isLastRound(4)).toBe(true);
+  });
+});
+
+describe("revealLines", () => {
+  const base: RoundReveal = {
+    imposterId: "carol",
+    word: "constellation",
+    votes: [],
+    finalGuess: null,
+    winner: "IMPOSTER",
+  };
+
+  it("survival branch: accused, imposter, word, then got-away", () => {
+    expect(revealLines({ ...base }, "bob", PLAYERS)).toEqual([
+      "The room accused bob.",
+      "The imposter was carol.",
+      'The word was "constellation"',
+      "The imposter got away...",
+    ]);
+  });
+
+  it("survival branch: names the tie when nobody was accused", () => {
+    expect(revealLines({ ...base }, null, PLAYERS)[0]).toBe(
+      "The room couldn't agree on anyone.",
+    );
+  });
+
+  it("caught branch: the accused is the imposter, with their guess quoted", () => {
+    const reveal: RoundReveal = {
+      ...base,
+      winner: "GROUP",
+      finalGuess: { text: "  galaxy  ", submittedAt: 0 },
+    };
+    expect(revealLines(reveal, "carol", PLAYERS)).toEqual([
+      "carol was caught red-handed!",
+      'Their guess: "galaxy"',
+      'The word was "constellation"',
+      "Caught red-handed, and they guessed wrong. The group wins the round.",
+    ]);
+  });
+
+  it("caught branch: says so when the imposter never guessed", () => {
+    expect(revealLines({ ...base }, "carol", PLAYERS)[1]).toBe(
+      "They never made a guess.",
+    );
+  });
+
+  it("falls back to 'someone' when a player id is not in the room", () => {
+    const reveal: RoundReveal = { ...base, imposterId: "ghost" };
+    expect(revealLines(reveal, null, PLAYERS)[1]).toBe(
+      "The imposter was someone.",
+    );
   });
 });
