@@ -275,6 +275,7 @@ export default function DrawingRound({
                   colour={player.colour}
                   initial={player.nickname.charAt(0).toUpperCase() || "?"}
                   className="avatar-fluid"
+                  avatarDrawing={player.avatarDrawing}
                 />
                 <span className="sr-only">
                   {player.nickname}

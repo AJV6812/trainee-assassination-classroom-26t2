@@ -23,6 +23,9 @@ export interface Player {
   connected: boolean;
   ready: boolean;
   isSpectator: boolean;
+  // Undefined until the player saves one; AvatarBlob falls back to the
+  // colour-and-initial blob until then.
+  avatarDrawing?: AvatarStroke[];
 }
 
 export interface Point {
@@ -30,6 +33,14 @@ export interface Point {
   x: number;
   // Normalised 0..1, fraction of the canvas element's rendered height.
   y: number;
+}
+
+// A stroke drawn on a player's own avatar circle. No id, playerId, or colour
+// like the game's Stroke: every stroke here belongs to the one player who
+// owns the avatar, always in their own locked colour, so there is nothing
+// per-stroke worth storing beyond the points themselves.
+export interface AvatarStroke {
+  points: Point[];
 }
 
 export interface Stroke {
