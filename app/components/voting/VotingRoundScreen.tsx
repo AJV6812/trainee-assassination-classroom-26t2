@@ -36,6 +36,7 @@ export function VotingRoundScreen({
     id: player.id,
     nickname: player.nickname,
     colour: player.colour,
+    avatarDrawing: player.avatarDrawing,
   }));
 
   const [pendingTargetId, setPendingTargetId] = useState<PlayerId | null>(null);
