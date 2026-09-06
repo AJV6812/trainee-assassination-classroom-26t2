@@ -101,23 +101,19 @@ export function createRoom(hostId: PlayerId, nickname: string): Room {
   return room;
 }
 
+// Wipe a room back to a fresh lobby, keeping its players. Used by the host
+// rematch and by the forced restarts (imposter left, dropped below four).
 export function restartGame(
-  room: PublicRoom,
+  room: Room,
   broadcastMessage: (message: string) => void,
   message: string,
 ): Room {
-  const newRoom: Room = {
-    code: room.code,
-    hostId: room.hostId,
-    players: room.players,
-    state: createInitialGameState(),
-    deck: createWordDeck(),
-  };
-  rooms.set(room.code, newRoom);
+  room.state = createInitialGameState();
+  room.deck = createWordDeck();
 
   broadcastMessage(message);
 
-  return newRoom;
+  return room;
 }
 
 export function getRoom(code: RoomCode): Room | null {
@@ -290,7 +286,7 @@ export function canRestartGame(
     return {
       ok: false,
       code: "WRONG_PHASE",
-      message: "That game has not ended started.",
+      message: "The game is not over yet.",
     };
   }
   return { ok: true, data: undefined };

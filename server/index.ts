@@ -76,7 +76,10 @@ type GameSocket = Socket<
   SocketData
 >;
 
-const RECONNECT_GRACE_MS = 10_000;
+const RECONNECT_GRACE_MS = parseInt(
+  process.env.RECONNECT_GRACE_MS || "10000",
+  10,
+);
 const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>();
 
 function pendingKey(roomCode: RoomCode, playerId: PlayerId) {
@@ -125,10 +128,14 @@ function scheduleRemoval(roomCode: RoomCode, playerId: PlayerId) {
 
       if (wasDrawing) {
         enterPhase(room, next);
-      } else if (next !== room.state) {
-        // Only the rotation changed. Broadcast it, but leave the running timer
-        // alone or the current player would get a second full turn.
-        room.state = next;
+      } else {
+        // Push the current state to whoever is left. Only the rotation changed
+        // here, or leaveRoom reset the whole game (imposter left / dropped
+        // below four) — either way the clients need it. Don't re-arm the phase
+        // timer (no enterPhase) or the current drawer gets a second full turn.
+        if (next !== room.state) {
+          room.state = next;
+        }
         broadcastState(roomCode, room);
       }
     }, RECONNECT_GRACE_MS),
@@ -169,7 +176,6 @@ function broadcastState(roomCode: RoomCode, room: Room) {
     const memberSocket = io.sockets.sockets.get(socketId);
     const playerId = memberSocket?.data.playerId;
     if (memberSocket && playerId) {
-      memberSocket.emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
       memberSocket.emit(
         SERVER_EVENTS.STATE_UPDATED,
         serialiseStateFor(playerId, room),
@@ -234,8 +240,19 @@ function beginRound(room: Room): Result<void> {
   return { ok: true, data: undefined };
 }
 
-// TODO: Rate limiting
-// TODO: I don't know what zod is
+// Canvas coordinates are normalised 0..1 on both axes (T11). Reject any point
+// outside that box, or one that isn't a finite number.
+// TODO (T23): move this + a zod pass + rate limiting into shared validation.
+function pointInBounds(point: { x: number; y: number }): boolean {
+  return (
+    Number.isFinite(point.x) &&
+    Number.isFinite(point.y) &&
+    point.x >= 0 &&
+    point.x <= 1 &&
+    point.y >= 0 &&
+    point.y <= 1
+  );
+}
 
 io.on("connection", (socket) => {
   console.log(`client connected: ${socket.id}`);
@@ -401,10 +418,10 @@ io.on("connection", (socket) => {
     }
 
     for (const point of payload.points) {
-      if (point.x < 0 || point.y > 1) {
+      if (!pointInBounds(point)) {
         socket.emit(SERVER_EVENTS.ERROR, {
           code: "INVALID_PAYLOAD",
-          message: "Outside of scope.",
+          message: "Stroke point is outside the canvas.",
         });
         return;
       }
@@ -596,10 +613,10 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (payload.point.x < 0 || payload.point.y > 1) {
+    if (!pointInBounds(payload.point)) {
       socket.emit(SERVER_EVENTS.ERROR, {
         code: "INVALID_PAYLOAD",
-        message: "Outside of scope.",
+        message: "Stroke point is outside the canvas.",
       });
       return;
     }
@@ -654,10 +671,10 @@ io.on("connection", (socket) => {
     }
 
     for (const point of payload.points) {
-      if (point.x < 0 || point.y > 1) {
+      if (!pointInBounds(point)) {
         socket.emit(SERVER_EVENTS.ERROR, {
           code: "INVALID_PAYLOAD",
-          message: "Outside of scope.",
+          message: "Stroke point is outside the canvas.",
         });
         return;
       }
@@ -685,6 +702,7 @@ io.on("connection", (socket) => {
     socket.data.playerId = undefined;
     socket.leave(roomCode);
 
+    cancelPendingRemoval(roomCode, playerId);
     leaveRoomVoluntarily(roomCode, playerId, (message) => {
       io.to(roomCode).emit(SERVER_EVENTS.INFO, message);
     });
@@ -692,10 +710,32 @@ io.on("connection", (socket) => {
 
     socket.emit(SERVER_EVENTS.ROOM_UPDATED, null);
     socket.emit(SERVER_EVENTS.STATE_UPDATED, null);
+    ack({ ok: true, data: undefined });
 
     if (room) {
-      broadcastState(roomCode, room);
-      return;
+      io.to(roomCode).emit(SERVER_EVENTS.ROOM_UPDATED, toPublicRoom(room));
+
+      // Repair the round around the gap they left, same as the disconnect path:
+      // hand on their turn if it was theirs, then drop them from the rotation.
+      // (No-op when leaveRoomVoluntarily already reset the game to LOBBY.)
+      let next = room.state;
+      const wasDrawing = isCurrentDrawer(next, playerId);
+      if (wasDrawing) {
+        const advanced = advanceTurn(next);
+        if (advanced.ok) {
+          next = advanced.data;
+        }
+      }
+      next = dropFromTurnOrder(next, playerId);
+
+      if (wasDrawing) {
+        enterPhase(room, next);
+      } else {
+        if (next !== room.state) {
+          room.state = next;
+        }
+        broadcastState(roomCode, room);
+      }
     }
   });
 
