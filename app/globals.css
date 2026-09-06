@@ -70,15 +70,15 @@ body {
 .frame-non-imposter-card {
   background-image: url("/images/drawing-round/non-imposter-category-word.png");
   background-repeat: no-repeat;
-  background-size: 140px 320px;
+  background-size: 320px 140px;
   background-position: 0 0;
 }
 
 .frame-imposter-chameleon-reveal {
   background-image: url("/images/drawing-round/imposter-chameleon-reveal.png");
   background-repeat: no-repeat;
-  background-size: 330px 475px;
-  background-position: -109px -47px;
+  background-size: 200px 388px;
+  background-position: -27px -6px;
 }
 
 .frame-nickname {
@@ -259,8 +259,8 @@ body {
 .art-music-toggle {
   aspect-ratio: 704 / 708;
   background-repeat: no-repeat;
-  background-size: 232.955% 333.390%;
-  background-position: 44.658% 44.310%;
+  background-size: 232.955% 333.39%;
+  background-position: 44.658% 44.31%;
   transform: rotate(180deg);
 }
 
