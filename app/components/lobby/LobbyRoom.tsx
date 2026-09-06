@@ -70,9 +70,8 @@ export function LobbyRoom({ room, playerId, socket }: LobbyRoomProps) {
         onStart={handleStart}
       />
 
-      {me && (
+      {me && customizeOpen && (
         <CustomizeAvatarModal
-          open={customizeOpen}
           onClose={() => setCustomizeOpen(false)}
           player={me}
           socket={socket}

@@ -10,7 +10,6 @@ import {
 } from "./AvatarCanvasEditor";
 
 interface CustomizeAvatarModalProps {
-  open: boolean;
   onClose: () => void;
   player: Player;
   socket: AppSocket;
@@ -24,7 +23,12 @@ const UNDO_BUTTON = { left: 7.27, top: 86.03, width: 17.06, height: 10.5 };
 const CANCEL_BUTTON = { left: 26.53, top: 85.18, width: 28.24, height: 11.6 };
 const SAVE_BUTTON = { left: 61.55, top: 83.99, width: 30.69, height: 10.84 };
 
-function pct(box: { left: number; top: number; width: number; height: number }) {
+function pct(box: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}) {
   return {
     left: `${box.left}%`,
     top: `${box.top}%`,
@@ -34,7 +38,6 @@ function pct(box: { left: number; top: number; width: number; height: number }) 
 }
 
 export function CustomizeAvatarModal({
-  open,
   onClose,
   player,
   socket,
@@ -47,10 +50,6 @@ export function CustomizeAvatarModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!open) {
-    return null;
-  }
 
   function handleSave() {
     setSaving(true);
@@ -72,10 +71,19 @@ export function CustomizeAvatarModal({
       aria-modal="true"
       aria-label="Customize your avatar"
     >
-      <div className="relative w-full max-w-sm" style={{ aspectRatio: "613 / 591" }}>
-        <div aria-hidden className="art-avatar-card absolute inset-0 h-full w-full" />
+      <div
+        className="relative w-full max-w-sm"
+        style={{ aspectRatio: "613 / 591" }}
+      >
+        <div
+          aria-hidden
+          className="art-avatar-card absolute inset-0 h-full w-full"
+        />
 
-        <div className="absolute overflow-hidden rounded-full" style={pct(CIRCLE)}>
+        <div
+          className="absolute overflow-hidden rounded-full"
+          style={pct(CIRCLE)}
+        >
           <AvatarCanvasEditor
             ref={editorRef}
             colour={player.colour}
@@ -96,7 +104,10 @@ export function CustomizeAvatarModal({
           className="absolute transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100"
           style={pct(UNDO_BUTTON)}
         >
-          <span aria-hidden className="art-avatar-undo-button block h-full w-full" />
+          <span
+            aria-hidden
+            className="art-avatar-undo-button block h-full w-full"
+          />
         </button>
 
         <button
@@ -106,7 +117,10 @@ export function CustomizeAvatarModal({
           className="absolute transition-transform hover:scale-105 active:scale-95"
           style={pct(CANCEL_BUTTON)}
         >
-          <span aria-hidden className="art-avatar-cancel-button block h-full w-full" />
+          <span
+            aria-hidden
+            className="art-avatar-cancel-button block h-full w-full"
+          />
         </button>
 
         <button
@@ -117,7 +131,10 @@ export function CustomizeAvatarModal({
           className="absolute transition-transform hover:scale-105 active:scale-95 disabled:opacity-60 disabled:hover:scale-100"
           style={pct(SAVE_BUTTON)}
         >
-          <span aria-hidden className="art-avatar-save-button block h-full w-full" />
+          <span
+            aria-hidden
+            className="art-avatar-save-button block h-full w-full"
+          />
         </button>
 
         {error && (
