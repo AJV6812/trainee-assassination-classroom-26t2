@@ -92,11 +92,11 @@ export function LobbyRoom({
           onStart={handleStart}
         />
 
-        {me && (
+        {me && customizeOpen && (
           <CustomizeAvatarModal
-            open={customizeOpen}
             onClose={() => setCustomizeOpen(false)}
             player={me}
+            socket={socket}
           />
         )}
       </div>

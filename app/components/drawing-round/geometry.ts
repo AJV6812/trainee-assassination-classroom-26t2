@@ -1,4 +1,4 @@
-import type { PlayerId } from "@/shared/types";
+import type { AvatarStroke, PlayerId } from "@/shared/types";
 
 // Geometry shared by the drawing round and the voting round
 
@@ -24,4 +24,5 @@ export interface RosterPlayer {
   id: PlayerId;
   nickname: string;
   colour: string;
+  avatarDrawing?: AvatarStroke[];
 }

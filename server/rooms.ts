@@ -2,6 +2,7 @@ import { type Result } from "@/shared/events";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
+  type AvatarStroke,
   type GameState,
   type Player,
   type PlayerId,
@@ -183,6 +184,24 @@ export function joinRoom(
     isSpectator: room.state.phase !== "LOBBY",
   });
   return { ok: true, data: room };
+}
+
+export function setAvatarDrawing(
+  code: RoomCode,
+  playerId: PlayerId,
+  strokes: AvatarStroke[],
+): Room | null {
+  const roomCode = normaliseCode(code);
+  const room = rooms.get(roomCode);
+  if (!room) {
+    return null;
+  }
+  const player = room.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    return null;
+  }
+  player.avatarDrawing = strokes;
+  return room;
 }
 
 export function setReady(
